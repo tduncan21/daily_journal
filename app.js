@@ -1,15 +1,28 @@
-
 const express = require("express");
 const bodyParser = require("body-parser");
 var _ = require('lodash');
+const mongoose = require('mongoose');
 const ejs = require("ejs");
+const { result } = require("lodash");
+
+mongoose.connect('mongodb://localhost:27017/dailyjournalDB', {useNewUrlParser: true, useUnifiedTopology: true});
+
+const postSchema = new mongoose.Schema({
+  postTitle: {
+    type: String,
+    required: [true, "Add Title"]
+  },
+  postBody: {
+    type: String,
+    required: [true, "Add Body"]
+  }
+});
+
+const Post = mongoose.model("Post", postSchema);
 
 const homeStartingContent = "Lacus vel facilisis volutpat est velit egestas dui id ornare. Semper auctor neque vitae tempus quam. Sit amet cursus sit amet dictum sit amet justo. Viverra tellus in hac habitasse. Imperdiet proin fermentum leo vel orci porta. Donec ultrices tincidunt arcu non sodales neque sodales ut. Mattis molestie a iaculis at erat pellentesque adipiscing. Magnis dis parturient montes nascetur ridiculus mus mauris vitae ultricies. Adipiscing elit ut aliquam purus sit amet luctus venenatis lectus. Ultrices vitae auctor eu augue ut lectus arcu bibendum at. Odio euismod lacinia at quis risus sed vulputate odio ut. Cursus mattis molestie a iaculis at erat pellentesque adipiscing.";
 const aboutContent = "Hac habitasse platea dictumst vestibulum rhoncus est pellentesque. Dictumst vestibulum rhoncus est pellentesque elit ullamcorper. Non diam phasellus vestibulum lorem sed. Platea dictumst quisque sagittis purus sit. Egestas sed sed risus pretium quam vulputate dignissim suspendisse. Mauris in aliquam sem fringilla. Semper risus in hendrerit gravida rutrum quisque non tellus orci. Amet massa vitae tortor condimentum lacinia quis vel eros. Enim ut tellus elementum sagittis vitae. Mauris ultrices eros in cursus turpis massa tincidunt dui.";
 const contactContent = "Scelerisque eleifend donec pretium vulputate sapien. Rhoncus urna neque viverra justo nec ultrices. Arcu dui vivamus arcu felis bibendum. Consectetur adipiscing elit duis tristique. Risus viverra adipiscing at in tellus integer feugiat. Sapien nec sagittis aliquam malesuada bibendum arcu vitae. Consequat interdum varius sit amet mattis. Iaculis nunc sed augue lacus. Interdum posuere lorem ipsum dolor sit amet consectetur adipiscing elit. Pulvinar elementum integer enim neque. Ultrices gravida dictum fusce ut placerat orci nulla. Mauris in aliquam sem fringilla ut morbi tincidunt. Tortor posuere ac ut consequat semper viverra nam libero.";
-
-const posts = [];
-let postFound = false;
 
 const app = express();
 
@@ -20,7 +33,13 @@ app.use(express.static("public"));
 
 
 app.get('/', (req, res) => {
-  res.render("home", {homeContent: homeStartingContent, posts: posts});
+  Post.find({}, (err, results) => {
+    if(err) {
+      console.log(err);
+    } else {
+      res.render("home", {homeContent: homeStartingContent, posts: results});
+    }
+  })
 });
 
 app.get('/about', (req, res) => {
@@ -38,26 +57,51 @@ app.get('/compose', (req, res) => {
 app.post('/compose', (req, res) => {
   const postTitle = req.body.postTitle;
   const postBody = req.body.postBody;
-  const post = {postTitle: postTitle, postBody: postBody};
-  posts.push(post);
+
+  const newPost = new Post({
+    postTitle: postTitle,
+    postBody: postBody
+  });
+  newPost.save();
   res.redirect("/");
 });
 
-app.get('/posts/:postName', (req, res) => {
-  const postName = _.lowerCase(req.params.postName);
-  posts.forEach((post) => {
-    if(_.lowerCase(post.postTitle) === postName){
-      res.render("post", {post: post});
-      postFound = true;
-      return;
+app.get('/posts/:postID', (req, res) => {
+  const postId = req.params.postID;
+  Post.findById(postId, (err, results) => {
+    if(err) {
+      console.log(err);
+      res.render("error");
+    } else {
+      res.render("post", {post: results});
     }
   });
-  if(!postFound){
-    res.render("error");
-  }
-  postFound = false;
 });
 
+app.get('/edit/:postID', (req, res) => {
+  const postId = req.params.postID;
+  Post.findById(postId, (err, results) => {
+    if(err) {
+      console.log(err);
+    } else {
+      res.render("edit", {post: results});
+    }
+  });
+});
+
+app.post('/edit/:postID', (req, res) => {
+
+  const postTitle = req.body.postTitle;
+  const postBody = req.body.postBody;
+  const postId = req.body.postId;
+  Post.findByIdAndUpdate(postId, {$set: {postTitle: postTitle, postBody: postBody}}, (err, results) => {
+    if(err) {
+      console.log(err);
+    } else {
+      res.redirect("/");
+    }
+  });
+});
 
 app.listen(process.env.PORT || 3000, function() {
   console.log("Server started on port 3000");

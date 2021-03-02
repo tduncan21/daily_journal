@@ -3,4 +3,6 @@
 <h1><%= post.postTitle %></h1>
 <p><%= post.postBody %></p>
 
+<input type="button" value="Edit" onclick="document.location.href='/edit/<%=post.id%>';">
+
 <%- include("partials/footer") -%>
